@@ -46,6 +46,10 @@ Configuration attributes (set in app.viam CONFIGURE tab)
                              lower-noise conversions (more effective bits).
   settling_us       float  Analog settling time in microseconds. 0 (default) =
                              auto. Raise for high source impedance.
+  include_diagnostics bool  false (default) / true. When false, get_readings
+                             returns only the channel voltages. When true, it
+                             also emits board_sample_rate_hz, viam_reading_rate_hz,
+                             and samples_per_reading (see get_readings docstring).
 """
 
 from __future__ import annotations
@@ -72,6 +76,7 @@ DEFAULT_DEVICE_TYPE     = "T7"
 DEFAULT_VOLTAGE_RANGE   = 10.0     # ±10 V, the T7's widest AIN range
 DEFAULT_RESOLUTION_INDEX = 0       # 0 = LJM default
 DEFAULT_SETTLING_US     = 0.0      # 0 = auto
+DEFAULT_INCLUDE_DIAGNOSTICS = False   # hide the rate/sample diagnostics unless enabled
 
 NUM_AIN_CHANNELS = 14              # T7 has AIN0–AIN13
 VALID_RANGES     = (10.0, 1.0, 0.1, 0.01)   # ±V full-scale options
@@ -181,6 +186,7 @@ class LabJackT7(Sensor, EasyResource):
 
     _dev: _LabJackT7 | None
     _active_channels: list[int]
+    _include_diagnostics: bool       # whether get_readings emits the rate/sample fields
     _last_read_ts: Optional[float]   # perf_counter() of the previous get_readings
 
     # ── Config validation (called before new()) ─────────────────────────────
@@ -282,6 +288,11 @@ class LabJackT7(Sensor, EasyResource):
         else:
             sensor._active_channels = [0]
 
+        sensor._include_diagnostics = (
+            fields["include_diagnostics"].bool_value
+            if "include_diagnostics" in fields else DEFAULT_INCLUDE_DIAGNOSTICS
+        )
+
         sensor._last_read_ts = None
         sensor._dev = _LabJackT7(
             connection_type,
@@ -360,9 +371,12 @@ class LabJackT7(Sensor, EasyResource):
 
         board_rate = round(conversions / read_elapsed, 1) if (read_elapsed > 0 and conversions) else 0.0
 
-        results["board_sample_rate_hz"] = board_rate   # AIN samples/sec the T7 achieved
-        results["viam_reading_rate_hz"] = viam_rate     # get_readings calls/sec from viam-server
-        results["samples_per_reading"]  = conversions   # channels read this reading
+        # Diagnostics are opt-in: only emitted when include_diagnostics is true,
+        # so by default a reading is just the channel voltages.
+        if self._include_diagnostics:
+            results["board_sample_rate_hz"] = board_rate   # AIN samples/sec the T7 achieved
+            results["viam_reading_rate_hz"] = viam_rate     # get_readings calls/sec from viam-server
+            results["samples_per_reading"]  = conversions   # channels read this reading
 
         return results
 

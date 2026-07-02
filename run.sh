@@ -15,4 +15,8 @@ fi
 
 # src/main.py imports `from models.labjack_t7 import ...`; running the script
 # from src/ puts that dir on sys.path so the import resolves.
-exec venv/bin/python src/main.py
+#
+# "$@" forwards the socket path that viam-server passes to the entrypoint —
+# Module.run_from_registry() requires it as a positional arg, so dropping it
+# makes the module exit 2 ("the following arguments are required: socket_path").
+exec venv/bin/python src/main.py "$@"

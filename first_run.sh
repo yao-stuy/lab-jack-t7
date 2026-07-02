@@ -59,12 +59,18 @@ fi
 
 echo "Running LJM installer ..."
 chmod +x "$RUN"
-# --without-kipling skips the GUI app (unneeded on a headless machine). Fall back
-# to a plain run if the installer rejects the argument.
-$SUDO "$RUN" -- --without-kipling || $SUDO "$RUN" || {
-    echo "LJM installer returned non-zero; install manually if the module can't open the T7." >&2
-    exit 0
-}
+# The installer is a Makeself archive with an interactive license prompt. On a
+# headless machine we MUST pass --accept (accept the license non-interactively)
+# and --nox11 (don't spawn an xterm), or it blocks on "Please type y to accept"
+# and aborts. Args after `--` go to LabJack's embedded script; --without-kipling
+# skips the GUI app. </dev/null guards against any other read prompt. If the
+# embedded arg isn't recognized, fall back to a plain accepted run.
+if ! $SUDO "$RUN" --accept --nox11 --noprogress -- --without-kipling </dev/null; then
+    $SUDO "$RUN" --accept --nox11 --noprogress </dev/null || {
+        echo "LJM installer failed; install manually from labjack.com if the module can't open the T7." >&2
+        exit 0
+    }
+fi
 
 $SUDO ldconfig 2>/dev/null || true
 echo "✓  LJM installed."

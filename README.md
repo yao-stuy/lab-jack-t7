@@ -97,19 +97,24 @@ The T7 is more than an ADC, so `DoCommand` exposes its whole register map:
 ```
 lab-jack/
 ├── meta.json                  # registry metadata + build steps (setup/build/first_run/arch)
+├── run.sh                     # entrypoint: builds the venv on first launch, runs the module
 ├── setup.sh                   # creates venv, installs requirements.txt
-├── build.sh                   # PyInstaller → dist/main, packages dist/archive.tar.gz
+├── build.sh                   # packages the source into dist/archive.tar.gz
 ├── first_run.sh               # installs the native LJM driver on the machine, once
 ├── requirements.txt           # viam-sdk, labjack-ljm
 ├── src/
-│   ├── main.py                # entrypoint: Module.run_from_registry()
+│   ├── main.py                # Module.run_from_registry()
 │   └── models/labjack_t7.py   # the sensor model
 └── .github/workflows/deploy.yml   # cloud build + publish on version tags
 ```
 
-`meta.json` declares the build pipeline. `entrypoint` is `dist/main` — the single
-self-contained binary PyInstaller produces, so the machine needs **no** Python or
-venv at runtime (only the LJM system driver).
+`meta.json` declares the build pipeline. `entrypoint` is `run.sh`. Unlike the
+sibling ADS1115/MCP3008 modules, this one ships **source, not a PyInstaller
+binary**: the `labjack-ljm` wrapper `ctypes`-loads the native `libLabJackM.so`
+driver at runtime, which doesn't survive freezing. So `run.sh` builds a venv from
+`requirements.txt` on the machine at first launch — the machine therefore needs
+**Python 3.10+ and internet** the first time it starts the module (plus the LJM
+system driver, which `first_run.sh` installs).
 
 ---
 

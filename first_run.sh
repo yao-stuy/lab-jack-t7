@@ -3,17 +3,18 @@
 # target machine. viam-server runs this once, the first time the module is
 # deployed to a machine (declared via meta.json -> first_run).
 #
-# The `labjack-ljm` pip package (bundled into dist/main) is only a ctypes wrapper
-# around this native library, so the .so must be present on the host or the
-# module fails to open the T7.
+# The `labjack-ljm` pip package (installed into the venv by setup.sh) is only a
+# ctypes wrapper around this native library, so the .so must be present and
+# registered with the dynamic linker (ldconfig) or the module can't open the T7.
 #
-# This is best-effort: if the download URL or your distro isn't covered, install
-# LJM manually from https://labjack.com/support/software/installers/ljm and this
-# step becomes a no-op (it detects an existing install and exits 0).
+# Best-effort: if your distro/arch isn't covered, install LJM manually from
+# https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit
+# and this step becomes a no-op (it detects a loadable install and exits 0).
 set -e
 
-# Already installed? Nothing to do.
-if [ -e /usr/local/lib/libLabJackM.so ] || ldconfig -p 2>/dev/null | grep -q LabJackM; then
+# Already loadable by the dynamic linker? Then we're done. (We check the
+# ldconfig cache specifically — a stray file that isn't cached wouldn't load.)
+if ldconfig -p 2>/dev/null | grep -qi LabJackM; then
     echo "LJM already installed — skipping."
     exit 0
 fi
@@ -21,16 +22,19 @@ fi
 SUDO="sudo"
 command -v $SUDO >/dev/null 2>&1 || SUDO=""
 
+# libLabJackM.so links against libusb-1.0; unzip is needed for the installer.
+if command -v apt-get >/dev/null 2>&1; then
+    $SUDO apt-get -qq update >/dev/null 2>&1 || true
+    $SUDO apt-get -qqy install libusb-1.0-0 unzip >/dev/null 2>&1 || true
+fi
+
 ARCH=$(uname -m)
 case "$ARCH" in
     x86_64|amd64)
-        URL="https://files.labjack.com/installers/LJM/Linux/x64/release/labjack_ljm_software_2020_03_30_x86_64.tar.gz"
+        URL="https://files.labjack.com/installers/LJM/Linux/x64/release/LabJack-LJM_2025-05-07.zip"
         ;;
     aarch64|arm64)
-        URL="https://files.labjack.com/installers/LJM/Linux/aarch64/release/labjack_ljm_software_2020_03_30_aarch64.tar.gz"
-        ;;
-    armv7l|armv6l|arm*)
-        URL="https://files.labjack.com/installers/LJM/Linux/arm32/release/labjack_ljm_software_2020_03_30_arm32.tar.gz"
+        URL="https://files.labjack.com/installers/LJM/Linux/AArch64/release/LabJack-LJM_2025-05-07.zip"
         ;;
     *)
         echo "Unsupported arch '$ARCH'. Install LJM manually from labjack.com." >&2
@@ -41,21 +45,23 @@ esac
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 echo "Downloading LJM installer for $ARCH ..."
-if ! curl -fsSL "$URL" -o "$TMP/ljm.tar.gz"; then
+if ! curl -fsSL "$URL" -o "$TMP/ljm.zip"; then
     echo "LJM download failed. Install manually from labjack.com; then this module will work." >&2
     exit 0
 fi
 
-tar -xzf "$TMP/ljm.tar.gz" -C "$TMP"
-INSTALLER=$(find "$TMP" -name 'labjack_ljm_installer.run' -o -name 'labjack_ljm_installer*.run' | head -n1)
-if [ -z "$INSTALLER" ]; then
-    echo "Could not find LJM installer script in archive." >&2
+unzip -q "$TMP/ljm.zip" -d "$TMP"
+RUN=$(find "$TMP" -name 'labjack_ljm_installer.run' | head -n1)
+if [ -z "$RUN" ]; then
+    echo "Could not find LJM installer (.run) in the archive." >&2
     exit 0
 fi
 
 echo "Running LJM installer ..."
-chmod +x "$INSTALLER"
-$SUDO "$INSTALLER" -- --no-restart-device-rules || {
+chmod +x "$RUN"
+# --without-kipling skips the GUI app (unneeded on a headless machine). Fall back
+# to a plain run if the installer rejects the argument.
+$SUDO "$RUN" -- --without-kipling || $SUDO "$RUN" || {
     echo "LJM installer returned non-zero; install manually if the module can't open the T7." >&2
     exit 0
 }

@@ -12,7 +12,7 @@
       "description": "LabJack T7 — reads calibrated voltages on AIN0–AIN13 over USB/Ethernet via the LJM driver; do_command reads/writes any named register (DAC, DIO, temperature)."
     }
   ],
-  "entrypoint": "dist/main",
+  "entrypoint": "run.sh",
   "first_run": "first_run.sh",
   "build": {
     "setup": "./setup.sh",

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://dl.viam.dev/module.schema.json",
+  "module_id": "yao-chen:labjack-t7",
+  "visibility": "public",
+  "url": "https://github.com/yao-stuy/lab-jack-t7",
+  "description": "LabJack T7 multifunction DAQ sensor module (analog inputs over USB/Ethernet via LJM).",
+  "models": [
+    {
+      "api": "rdk:component:sensor",
+      "model": "yao-chen:labjack-t7:labjack-t7",
+      "markdown_link": "README.md",
+      "description": "LabJack T7 — reads calibrated voltages on AIN0–AIN13 over USB/Ethernet via the LJM driver; do_command reads/writes any named register (DAC, DIO, temperature)."
+    }
+  ],
+  "entrypoint": "dist/main",
+  "first_run": "first_run.sh",
+  "build": {
+    "setup": "./setup.sh",
+    "build": "./build.sh",
+    "path": "dist/archive.tar.gz",
+    "arch": ["linux/arm64", "linux/amd64"]
+  }
+}

@@ -1,0 +1,23 @@
+# Viam Python module build artifacts
+venv/
+.venv/
+.installed
+dist/
+build/
+*.spec
+*.tar.gz
+.VIAM_RELOAD_ARCHIVE.tar.gz
+reload-*/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# macOS
+.DS_Store
+
+# Local dev tools with credentials — never publish
+live.py
+*.secret.*
+.env

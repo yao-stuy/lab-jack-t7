@@ -1,0 +1,7 @@
+# Viam Python SDK
+viam-sdk>=0.28.0
+
+# LabJack LJM Python wrapper.
+# NOTE: this only wraps the native LJM library, which must be installed
+# separately on the host (see README / first_run.sh).
+labjack-ljm>=1.23.0

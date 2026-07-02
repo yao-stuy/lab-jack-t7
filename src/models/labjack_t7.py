@@ -348,9 +348,10 @@ class LabJackT7(Sensor, EasyResource):
         try:
             volts = self._dev.read_channels()
             for ch, v in zip(self._active_channels, volts):
-                results[f"channel_{ch}_voltage"] = round(v, 6)
+                # Report the raw LJM double unrounded — full available precision.
+                results[f"channel_{ch}_voltage"] = float(v)
                 conversions += 1
-                self.logger.debug("AIN%d: %.6fV", ch, v)
+                self.logger.debug("AIN%d: %rV", ch, v)
         except Exception as exc:
             self.logger.error("Failed to read T7 channels: %s", exc)
             for ch in self._active_channels:
@@ -394,7 +395,7 @@ class LabJackT7(Sensor, EasyResource):
             ch = int(command["read_channel"])
             if not (0 <= ch < NUM_AIN_CHANNELS):
                 return {"error": f"channel must be 0–{NUM_AIN_CHANNELS - 1}"}
-            voltage = round(self._dev.read_name(f"AIN{ch}"), 6)
+            voltage = float(self._dev.read_name(f"AIN{ch}"))
             return {"channel": ch, "voltage": voltage}
 
         if "read_name" in command:

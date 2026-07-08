@@ -401,9 +401,36 @@ class LabJackT7(Sensor, EasyResource):
           {"write_name": {"name": "DAC0", "value": 2.5}}
               Write any named register — e.g. set an analog output or DIO.
               → {"name": "DAC0", "wrote": 2.5}
+
+          {"benchmark": 200}
+              Measure the fastest achievable get_readings rate: runs N
+              back-to-back batched reads (same call get_readings makes) and
+              reports the sustained rate. This is the module-side ceiling;
+              actual data capture tops out slightly below it (gRPC overhead).
+              → {"iterations": 200, "avg_read_ms": 0.8,
+                 "max_get_readings_hz": 1250.0, ...}
         """
         if self._dev is None:
             raise RuntimeError("LabJack T7 not initialized")
+
+        if "benchmark" in command:
+            n = int(command["benchmark"]) if command["benchmark"] else 200
+            n = max(1, min(n, 10_000))   # keep Test-tab runs bounded
+            start = time.perf_counter()
+            for _ in range(n):
+                self._dev.read_channels()
+            elapsed = time.perf_counter() - start
+            return {
+                "iterations": n,
+                "channels_per_read": len(self._active_channels),
+                "total_s": round(elapsed, 4),
+                "avg_read_ms": round(1000.0 * elapsed / n, 3),
+                # Sustained back-to-back read rate = the module-side ceiling on
+                # get_readings calls/sec. Real data capture lands a bit lower
+                # (gRPC + viam-server scheduling add per-call overhead).
+                "max_get_readings_hz": round(n / elapsed, 1),
+                "max_channel_samples_hz": round(n * len(self._active_channels) / elapsed, 1),
+            }
 
         if "read_channel" in command:
             ch = int(command["read_channel"])
